@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>view::MainWindow</class>
+ <widget class="QMainWindow" name="view::MainWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -60,6 +60,7 @@
      <string>File</string>
     </property>
     <addaction name="actionOpen"/>
+    <addaction name="actionView_Logs"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
@@ -85,13 +86,21 @@
     <string>Ctrl+Q</string>
    </property>
   </action>
+  <action name="actionView_Logs">
+   <property name="text">
+    <string>View Logs</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
   <connection>
    <sender>actionQuit</sender>
    <signal>triggered()</signal>
-   <receiver>MainWindow</receiver>
+   <receiver>view::MainWindow</receiver>
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -107,8 +116,24 @@
   <connection>
    <sender>actionOpen</sender>
    <signal>triggered()</signal>
-   <receiver>MainWindow</receiver>
+   <receiver>view::MainWindow</receiver>
    <slot>openFile()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionView_Logs</sender>
+   <signal>triggered()</signal>
+   <receiver>view::MainWindow</receiver>
+   <slot>viewLogs()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
@@ -123,5 +148,6 @@
  </connections>
  <slots>
   <slot>openFile()</slot>
+  <slot>viewLogs()</slot>
  </slots>
 </ui>

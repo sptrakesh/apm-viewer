@@ -1,7 +1,9 @@
 #include "mainwindow.hpp"
 #include "ui_MainWindow.h"
-#include "model/parser.hpp"
-#include "model/treemodel.hpp"
+#include "logviewer.hpp"
+#include "../date/date.hpp"
+#include "../model/parser.hpp"
+#include "../model/treemodel.hpp"
 
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
@@ -13,7 +15,7 @@
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QFileDialog>
 
-#include "date/date.hpp"
+using view::MainWindow;
 
 Q_LOGGING_CATEGORY( MAIN_WINDOW, "MainWindow" )
 
@@ -37,6 +39,12 @@ void MainWindow::openFile()
   if ( fileName.isNull() || fileName.isEmpty() ) return;
 
   parse( fileName );
+}
+
+void MainWindow::viewLogs()
+{
+  auto w = new LogViewer( this );
+  w->show();
 }
 
 void MainWindow::dragEnterEvent( QDragEnterEvent* event )

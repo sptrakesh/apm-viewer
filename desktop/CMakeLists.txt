@@ -31,9 +31,12 @@ qt_add_executable(desktop
   src/model/parser.hpp
   src/logger/logger.hpp
   src/logger/logger.cpp
-  src/mainwindow.hpp
-  src/mainwindow.ui
-  src/mainwindow.cpp
+  src/view/logviewer.hpp
+  src/view/logviewer.ui
+  src/view/logviewer.cpp
+  src/view/mainwindow.hpp
+  src/view/mainwindow.ui
+  src/view/mainwindow.cpp
   src/main.cpp
   ${app_icon}
 )
