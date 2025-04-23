@@ -13,6 +13,8 @@
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QFileDialog>
 
+#include "date/date.hpp"
+
 Q_LOGGING_CATEGORY( MAIN_WINDOW, "MainWindow" )
 
 MainWindow::MainWindow( QWidget* parent ) : QMainWindow( parent ) , ui( new Ui::MainWindow )
@@ -31,7 +33,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::openFile()
 {
-  auto fileName = QFileDialog::getOpenFileName( this, tr("Open File"), QDir::homePath() );
+  auto fileName = QFileDialog::getOpenFileName( this, tr("Open CSV"), QDir::homePath(), tr("CSV Files (*.csv)") );
   if ( fileName.isNull() || fileName.isEmpty() ) return;
 
   parse( fileName );
@@ -51,7 +53,7 @@ void MainWindow::dropEvent( QDropEvent* event )
     qInfo(MAIN_WINDOW) << "Dropped file:" << fileName;
 
     const auto file = QFileInfo( fileName );
-    if ( file.isFile() )
+    if ( file.isFile() && file.suffix() == "csv" )
     {
       parse( file.absoluteFilePath() );
     }
@@ -81,6 +83,37 @@ void MainWindow::treeClicked( const QModelIndex& index )
   model->setItem( i, 0, new QStandardItem( "id" ) );
   model->setItem( i, 1, new QStandardItem( node->id ) );
   ++i;
+
+  if ( !node->file.isEmpty() )
+  {
+    model->setItem( i, 0, new QStandardItem( "file" ) );
+    model->setItem( i, 1, new QStandardItem( node->file ) );
+    ++i;
+  }
+  if ( !node->function.isEmpty() )
+  {
+    model->setItem( i, 0, new QStandardItem( "function" ) );
+    model->setItem( i, 1, new QStandardItem( node->function ) );
+    ++i;
+  }
+  if ( node->line > 0 )
+  {
+    model->setItem( i, 0, new QStandardItem( "line" ) );
+    model->setItem( i, 1, new QStandardItem( QString( "%1" ).arg( node->line ) ) );
+    ++i;
+  }
+  if ( node->timestamp.time_since_epoch().count() > 0 )
+  {
+    model->setItem( i, 0, new QStandardItem( "timestamp" ) );
+    model->setItem( i, 1, new QStandardItem( QString::fromStdString( date::isoDateMicros( node->timestamp ) ) ) );
+    ++i;
+  }
+  if ( node->duration > 0 )
+  {
+    model->setItem( i, 0, new QStandardItem( "duration" ) );
+    model->setItem( i, 1, new QStandardItem( QString( "%1" ).arg( node->duration ) ) );
+    ++i;
+  }
 
   for ( const auto& [key, value] : node->keyValues() )
   {

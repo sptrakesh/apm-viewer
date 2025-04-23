@@ -44,8 +44,7 @@ namespace
         else if ( column == "function" ) node->function = QString::fromUtf8( row[column].get_sv() );
         else if ( column == "timestamp" || column == "timestamp_iso" ) parse( row[column].get_sv(), node );
         else if ( column == "duration" ) node->duration = row[column].get<int64_t>();
-
-        node->add( QString::fromStdString( column ), QString::fromUtf8( row[column].get_sv() ) );
+        else node->add( QString::fromStdString( column ), QString::fromUtf8( row[column].get_sv() ) );
       }
     }
 
