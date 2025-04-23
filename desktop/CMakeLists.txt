@@ -8,23 +8,34 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
 
 qt_standard_project_setup()
 
+if (APPLE)
+  set(MACOSX_BUNDLE_ICON_FILE apm.icns)
+  set(app_icon "${CMAKE_CURRENT_SOURCE_DIR}/resources/apm.icns")
+  set_source_files_properties(${app_icon} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+endif (APPLE)
+
+if (WIN32)
+  set(app_icon "${CMAKE_CURRENT_SOURCE_DIR}/resources/winicon.rc")
+endif (WIN32)
+
 qt_add_executable(desktop
   WIN32 MACOSX_BUNDLE
-  date/date.hpp
-  date/date.cpp
-  model/csv.hpp
-  model/node.hpp
-  model/node.cpp
-  model/treemodel.hpp
-  model/treemodel.cpp
-  model/parser.cpp
-  model/parser.hpp
-  logger/logger.hpp
-  logger/logger.cpp
-  mainwindow.hpp
-  mainwindow.ui
-  mainwindow.cpp
-  main.cpp
+  src/date/date.hpp
+  src/date/date.cpp
+  src/model/csv.hpp
+  src/model/node.hpp
+  src/model/node.cpp
+  src/model/treemodel.hpp
+  src/model/treemodel.cpp
+  src/model/parser.cpp
+  src/model/parser.hpp
+  src/logger/logger.hpp
+  src/logger/logger.cpp
+  src/mainwindow.hpp
+  src/mainwindow.ui
+  src/mainwindow.cpp
+  src/main.cpp
+  ${app_icon}
 )
 
 target_link_libraries(desktop
