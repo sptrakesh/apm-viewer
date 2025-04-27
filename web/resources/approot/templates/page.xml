@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<messages xmlns:if="Wt.WTemplate.conditions">
+  <message id="apm.page.navbar">
+    <section>
+      <nav>
+        <ul class="menuItems">
+          <li>${list}</li>
+          <li>|</li>
+          <li>${tree}</li>
+          <li>|</li>
+          <li>${logout}</li>
+        </ul>
+      </nav>
+    </section>
+  </message>
+  <message id="apm.page.navbar.menu.list">List</message>
+  <message id="apm.page.navbar.menu.tree">Tree View</message>
+  <message id="apm.page.navbar.menu.logout">Logout</message>
+</messages>

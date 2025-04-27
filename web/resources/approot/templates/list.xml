@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<messages xmlns:if="Wt.WTemplate.conditions">
+  <message id="apm.page.list">
+    <div class="page">
+      <div>
+        ${query}
+      </div>
+      <div>
+        ${submit}
+      </div>
+      <div>
+        ${table}
+      </div>
+      <div>${error}</div>
+    </div>
+  </message>
+</messages>
