@@ -20,93 +20,111 @@
 using std::operator""s;
 using std::operator""sv;
 
-namespace spt::tsdb::pquestdb
+namespace
 {
-  struct ConnectionDeleter
+  namespace pquestdb
   {
-    void operator()( pqxx::connection* c )
-    {
-      c->close();
-      delete c;
-    }
-  };
+    using namespace spt;
 
-  struct Connection
-  {
-    Connection()
+    struct ConnectionDeleter
     {
-      if ( const char* url = std::getenv( "QUESTDB_URI" ) )
+      void operator()( pqxx::connection* c )
       {
-        connection.reset( new pqxx::connection( url ) );
+        c->close();
+        delete c;
       }
-      else
-      {
-        connection.reset( new pqxx::connection( "postgresql://user:quest@localhost:8812/qdb"s ) );
-      }
-    }
+    };
 
-    pqxx::nontransaction transaction()
+    struct Connection
     {
-      return pqxx::nontransaction{ *connection.get() };
-    }
-
-    bool valid()
-    {
-      try
+      Connection()
       {
-        auto tx = transaction();
-        auto res = tx.exec( "select now()"sv );
-        return true;
-      }
-      catch( const std::exception& e )
-      {
-        apm::Application::instance()->log( "warn" ) << __FILE__ << " " << __func__ << " " << __LINE__ <<  " Error checking database connection. " << e.what();
-      }
-
-      return false;
-    }
-
-  private:
-    std::unique_ptr<pqxx::connection, ConnectionDeleter> connection{ nullptr };
-  };
-
-  std::unique_ptr<Connection> create()
-  {
-    return std::make_unique<Connection>();
-  }
-
-  struct PoolHolder
-  {
-    static PoolHolder& instance()
-    {
-      static PoolHolder holder;
-      return holder;
-    }
-
-    std::optional<pool::Pool<Connection>::Proxy> acquire()
-    {
-      auto proxy = pool.acquire();
-
-      int retry = 0;
-      while ( !(*proxy)->valid() )
-      {
-        proxy = pool.acquire();
-        if ( ++retry > 10 )
+        if ( const char* url = std::getenv( "QUESTDB_URI" ) )
         {
-          apm::Application::instance()->log( "crit" ) << __FILE__ << " " << __func__ << " " << __LINE__ <<  " Unable to get valid connection to database";
-          return std::nullopt;
+          connection.reset( new pqxx::connection( url ) );
+        }
+        else
+        {
+          connection.reset( new pqxx::connection( "postgresql://user:quest@localhost:8812/qdb"s ) );
         }
       }
 
-      return proxy;
+      pqxx::nontransaction transaction()
+      {
+        return pqxx::nontransaction{ *connection.get() };
+      }
+
+      bool valid()
+      {
+        try
+        {
+          auto tx = transaction();
+          auto res = tx.exec( "select now()"sv );
+          return true;
+        }
+        catch( const std::exception& e )
+        {
+          apm::Application::instance()->log( "warn" ) << __FILE__ << " " << __func__ << " " << __LINE__ <<  " Error checking database connection. " << e.what();
+        }
+
+        return false;
+      }
+
+    private:
+      std::unique_ptr<pqxx::connection, ConnectionDeleter> connection{ nullptr };
+    };
+
+    std::unique_ptr<Connection> create()
+    {
+      return std::make_unique<Connection>();
     }
 
-  private:
-    PoolHolder() = default;
+    struct PoolHolder
+    {
+      static PoolHolder& instance()
+      {
+        static PoolHolder holder;
+        return holder;
+      }
 
-    pool::Pool<Connection> pool{ create };
-  };
+      std::optional<tsdb::pool::Pool<Connection>::Proxy> acquire()
+      {
+        auto proxy = pool.acquire();
+
+        int retry = 0;
+        while ( !(*proxy)->valid() )
+        {
+          proxy = pool.acquire();
+          if ( ++retry > 10 )
+          {
+            apm::Application::instance()->log( "crit" ) << __FILE__ << " " << __func__ << " " << __LINE__ <<  " Unable to get valid connection to database";
+            return std::nullopt;
+          }
+        }
+
+        return proxy;
+      }
+
+    private:
+      PoolHolder() = default;
+
+      tsdb::pool::Pool<Connection> pool{ create };
+    };
+
+    std::string table()
+    {
+      if ( const char* value = std::getenv( "APM_TABLE" ) ) return { value };
+      return "webapm"s;
+    }
+  }
 }
+
+std::string spt::tsdb::table()
+{
+  static const auto table = pquestdb::table();
+  return table;
+}
+
 
 std::expected<pqxx::result, std::string> spt::tsdb::execute( std::string_view query )
 {

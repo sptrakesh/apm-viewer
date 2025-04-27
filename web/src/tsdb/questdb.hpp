@@ -13,5 +13,6 @@
 
 namespace spt::tsdb
 {
+  std::string table();
   std::expected<pqxx::result, std::string> execute( std::string_view query );
 }

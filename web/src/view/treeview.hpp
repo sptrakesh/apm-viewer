@@ -25,6 +25,7 @@ namespace spt::apm
   struct TreeView : Wt::WContainerWidget
   {
     TreeView();
+    explicit TreeView( std::string_view id );
 
     void execute();
 
@@ -32,6 +33,7 @@ namespace spt::apm
     using Wt::WContainerWidget::clear;
     using Wt::WContainerWidget::removeWidget;
 
+    void init( bool full );
     void displayProperties();
 
     Wt::WLineEdit* rows{ nullptr };

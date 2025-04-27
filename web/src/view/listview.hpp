@@ -8,6 +8,9 @@
 
 namespace Wt
 {
+  class WDialog;
+  class WModelIndex;
+  class WMouseEvent;
   class WPushButton;
   class WTableView;
   class WText;
@@ -31,10 +34,13 @@ namespace spt::apm
     using Wt::WContainerWidget::clear;
     using Wt::WContainerWidget::removeWidget;
 
+    void showTree( Wt::WModelIndex index, Wt::WMouseEvent event );
+
     Wt::WTextArea* query{ nullptr };
     Wt::WTableView* table{ nullptr };
     Wt::WText* error{ nullptr };
     Wt::WPushButton* submit{ nullptr };
+    Wt::WDialog* dialog{ nullptr };
 
     std::shared_ptr<model::TableModel> model{ nullptr };
   };

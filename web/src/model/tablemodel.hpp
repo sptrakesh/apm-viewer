@@ -18,6 +18,7 @@ namespace spt::model
     [[nodiscard]] int rowCount(const Wt::WModelIndex& parent) const override { return result.size(); }
     [[nodiscard]] std::any data(const Wt::WModelIndex& index, Wt::ItemDataRole role) const override;
     [[nodiscard]] std::any headerData(int section, Wt::Orientation orientation, Wt::ItemDataRole role) const override;
+    [[nodiscard]] std::string getId( const Wt::WModelIndex& index ) const;
 
     void sort( int, Wt::SortOrder ) override {}
 

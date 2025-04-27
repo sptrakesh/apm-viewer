@@ -2,15 +2,17 @@
 <messages xmlns:if="Wt.WTemplate.conditions">
   <message id="apm.page.tree">
     <div class="page">
+      ${<if:full>}
       <div>
         <span>Number of APM records: ${rows}</span>
         <span>${submit}</span>
       </div>
-      <div>
+      ${</if:full>}
+      <div class="treeview">
         ${tree}
       </div>
       <div>
-        <div>Additional record properties</div>
+        <div><strong>Full APM details</strong></div>
         ${table}
       </div>
       <div>${error}</div>

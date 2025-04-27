@@ -4,14 +4,19 @@
 
 #include "application.hpp"
 #include "listview.hpp"
+#include "treeview.hpp"
 #include "model/tablemodel.hpp"
 #include "tsdb/questdb.hpp"
 
+#include <Wt/WDialog.h>
+#include <Wt/WEvent.h>
+#include <Wt/WModelIndex.h>
 #include <Wt/WPushButton.h>
 #include <Wt/WTableView.h>
 #include <Wt/WTemplate.h>
 #include <Wt/WText.h>
 #include <Wt/WTextArea.h>
+#include <Wt/WTreeView.h>
 
 using spt::apm::ListView;
 using std::operator""sv;
@@ -26,16 +31,16 @@ ListView::ListView()
   query->setFocus();
   query->setObjectName( "apm-list-query-field" );
   query->setRows( 5 );
-  query->setText( R"(
+  query->setText( std::format( R"(
 select *
-from webapm
+from {}
 where type is null
 order by timestamp desc
 limit 100
-)" );
+)", tsdb::table() ) );
 
   submit = t->bindWidget( "submit", std::make_unique<Wt::WPushButton>( "Submit" ) );
-  submit->setStyleClass( "button__icon fas fa-chevron-right" );
+  submit->setStyleClass( "button-10" );
   submit->setObjectName( "auth-loginview-submit" );
   submit->clicked().connect( this, &ListView::execute );
 
@@ -49,6 +54,8 @@ limit 100
   error->setStyleClass( "login__input" );
   error->setObjectName( "apm-error-field" );
   error->setHidden( true );
+
+  table->doubleClicked().connect( this, &ListView::showTree );
 }
 
 void ListView::execute()
@@ -68,4 +75,26 @@ void ListView::execute()
   auto idx = model->index( 0, 0 );
   for ( int i = 0; i < model->columnCount( idx ); ++i ) table->setColumnAlignment( i, Wt::AlignmentFlag::Left | Wt::AlignmentFlag::Middle );
   table->setModel( model );
+}
+
+void ListView::showTree( Wt::WModelIndex index, Wt::WMouseEvent )
+{
+  auto id = model->getId( index );
+  if ( id.empty() ) return;
+
+  if ( dialog )
+  {
+    dialog->finished();
+  }
+
+  dialog = addChild( std::make_unique<Wt::WDialog>( "Full APM Details" ) );
+  dialog->contents()->addWidget( std::make_unique<TreeView>( id ) );
+  dialog->resize( "100%", "100%" );
+  dialog->finished().connect( [this] { removeChild( dialog ); dialog = nullptr; } );
+
+  auto* btn = dialog->footer()->addWidget( std::make_unique<Wt::WPushButton>( "Close" ) );
+  btn->setStyleClass( "button-10" );
+  btn->clicked().connect( dialog, &Wt::WDialog::accept );
+
+  dialog->show();
 }

@@ -19,8 +19,6 @@
 #include <boost/lexical_cast.hpp>
 #include <fmt/ranges.h>
 
-#include "model/tablemodel.hpp"
-
 using spt::apm::TreeView;
 using std::operator""sv;
 
@@ -33,10 +31,10 @@ namespace
       using O = std::expected<std::vector<std::string>, std::string>;
 
       auto result = spt::tsdb::execute( fmt::format( R"(select id
-from webapm
+from {}
 where type is null
 order by timestamp desc
-limit {})", rows ) );
+limit {})", spt::tsdb::table(), rows ) );
 
       if ( !result.has_value() ) return O{ std::unexpect, result.error() };
 
@@ -57,11 +55,20 @@ limit {})", rows ) );
       if ( !ids.has_value() ) return O{ std::unexpect, std::move( ids.error() ) };
 
       auto query = fmt::format( R"(select *
-from webapm
+from {}
 where id in ({:n})
-order by timestamp)", ids.value() );
+order by timestamp)", spt::tsdb::table(), ids.value() );
       boost::algorithm::replace_all( query, "\"", "'" );
 
+      auto result = spt::tsdb::execute( query );
+      if ( !result.has_value() ) return O{ std::unexpect, std::move( result.error() ) };
+      return O{ std::in_place, std::make_shared<spt::model::TreeModel>( result.value() ) };
+    }
+
+    std::expected<std::shared_ptr<spt::model::TreeModel>, std::string> model( std::string_view id )
+    {
+      using O = std::expected<std::shared_ptr<spt::model::TreeModel>, std::string>;
+      auto query = std::format( R"(select * from {} where id = '{}' order by timestamp)", spt::tsdb::table(), id );
       auto result = spt::tsdb::execute( query );
       if ( !result.has_value() ) return O{ std::unexpect, std::move( result.error() ) };
       return O{ std::in_place, std::make_shared<spt::model::TreeModel>( result.value() ) };
@@ -73,7 +80,45 @@ TreeView::TreeView()
 {
   Application::instance()->setTitle( "Tree"sv );
   Application::instance()->setPath( "/tree" );
+
+  init( true );
+  execute();
+}
+
+TreeView::TreeView( std::string_view id )
+{
+  init( false );
+
+  auto m = ptv::model( id );
+  if ( !m.has_value() )
+  {
+    error->setText( m.error() );
+    error->setHidden( false );
+    return;
+  }
+
+  tree->setModel( m.value() );
+}
+
+
+void TreeView::execute()
+{
+  error->setHidden( true );
+  auto m = ptv::model( boost::lexical_cast<int>( rows->text().toUTF8() ) );
+  if ( !m.has_value() )
+  {
+    error->setText( m.error() );
+    error->setHidden( false );
+    return;
+  }
+
+  tree->setModel( m.value() );
+}
+
+void TreeView::init( bool full )
+{
   auto t = addWidget( std::make_unique<Wt::WTemplate>( tr( "apm.page.tree" ) ) );
+  t->setCondition( "if:full", full );
 
   rows = t->bindWidget( "rows", std::make_unique<Wt::WLineEdit>() );
   rows->setObjectName( "tree-rows-field" );
@@ -96,10 +141,11 @@ TreeView::TreeView()
   tree->setSelectionMode( Wt::SelectionMode::Single );
 
   table = t->bindWidget( "table", std::make_unique<Wt::WTableView>() );
-  table->setObjectName( "apm-list-table-field" );
+  table->setObjectName( "apm-table-field" );
   table->setAlternatingRowColors( true );
   table->setSortingEnabled( false );
   table->setColumnResizeEnabled( true );
+  table->setColumnWidth( 1, Wt::WLength( "800px" ) );
 
   error = t->bindWidget( "error", std::make_unique<Wt::WText>() );
   error->setStyleClass( "login__input" );
@@ -108,23 +154,8 @@ TreeView::TreeView()
 
   rows->enterPressed().connect( [this] { submit->clicked().emit( Wt::WMouseEvent() ); } );
   tree->selectionChanged().connect( [this] { displayProperties(); } );
-
-  execute();
 }
 
-void TreeView::execute()
-{
-  error->setHidden( true );
-  auto m = ptv::model( boost::lexical_cast<int>( rows->text().toUTF8() ) );
-  if ( !m.has_value() )
-  {
-    error->setText( m.error() );
-    error->setHidden( false );
-    return;
-  }
-
-  tree->setModel( m.value() );
-}
 
 void TreeView::displayProperties()
 {

@@ -66,3 +66,19 @@ std::any TableModel::headerData( int section, Wt::Orientation orientation, Wt::I
 
   return Wt::WString( columns.at( section ) );
 }
+
+std::string TableModel::getId( const Wt::WModelIndex& index ) const
+{
+  if ( index.row() >= result.size() ) return {};
+  auto it = result.begin();
+  std::advance( it, index.row() );
+
+  for ( const auto& column : it )
+  {
+    if ( column.is_null() ) continue;
+    auto name = std::string{ column.name() };
+    boost::replace_all( name, "\"", "" );
+    if ( name == "id" ) return column.as<std::string>();
+  }
+  return {};
+}
