@@ -29,17 +29,7 @@ Service()
     --http-port $PORT --http-address 0.0.0.0 \
     --resources-dir /opt/local/share/Wt/resources \
     --deploy-path /a \
-    -c /opt/spt/var/wt_config.xml \
-    --pid-file $PIDFILE
-  echo $! > $PIDFILE
+    -c /opt/spt/var/wt_config.xml
 }
 
-Loop()
-{
-  while true
-  do
-    Service
-  done
-}
-
-Required && Defaults && Loop
+Required && Defaults && Service

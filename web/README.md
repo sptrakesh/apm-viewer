@@ -48,5 +48,8 @@ docker/run.sh start
 docker/run.sh stop
 ```
 
+A docker [image](https://hub.docker.com/r/sptrakesh/apm-app) is available for the web application.
+
 ### Third-party software
+* [libpqxx](https://github.com/jtv/libpqxx)
 * [base64](https://github.com/tobiaslocker/base64)
