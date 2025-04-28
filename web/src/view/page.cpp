@@ -7,8 +7,6 @@
 #include "page.hpp"
 #include "treeview.hpp"
 
-#include <Wt/WCheckBox.h>
-#include <log/NanoLog.hpp>
 #include <Wt/WAnchor.h>
 #include <Wt/WTemplate.h>
 #include <Wt/WText.h>

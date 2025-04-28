@@ -9,7 +9,6 @@
 #include <boost/url/parse.hpp>
 #include <boost/url/static_url.hpp>
 #include <fmt/format.h>
-#include <log/NanoLog.hpp>
 #include <Wt/WEnvironment.h>
 #include <Wt/WLength.h>
 #include <Wt/WMessageBox.h>
