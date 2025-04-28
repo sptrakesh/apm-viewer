@@ -52,6 +52,7 @@ namespace spt::apm
 
     std::string entryPath{};
     std::string lastPath{};
+    std::string cookieValue{};
     Page* page{ nullptr };
   };
 }

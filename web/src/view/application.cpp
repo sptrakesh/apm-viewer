@@ -5,21 +5,179 @@
 #include "application.hpp"
 #include "page.hpp"
 #include "authwidget.hpp"
+#include "util/base64.hpp"
+#include "util/date.hpp"
 
-#include <boost/url/parse.hpp>
-#include <boost/url/static_url.hpp>
-#include <fmt/format.h>
+#include <Wt/Http/Cookie.h>
 #include <Wt/WEnvironment.h>
-#include <Wt/WLength.h>
-#include <Wt/WMessageBox.h>
 #include <Wt/WPushButton.h>
 #include <Wt/WServer.h>
 #include <Wt/WString.h>
-#include <Wt/Http/Cookie.h>
+#include <boost/json/parse.hpp>
+#include <boost/json/serialize.hpp>
+#include <filesystem>
+#include <fmt/format.h>
+#include <fmt/os.h>
+#include <fstream>
 
 using spt::apm::Application;
 using std::operator""s;
 using std::operator""sv;
+
+namespace
+{
+  namespace papp
+  {
+    bool secureCookie()
+    {
+      if ( const char* value = std::getenv( "SECURE_COOKIE" ); value ) return "true"sv == value;
+      return false;
+    }
+
+    std::string encrypt( std::string_view value )
+    {
+      static const std::string key{ "0t0VMLvsK54hzE1AsZ5fkUPV8H9AVx+48K/DTVs4oA0=" };
+      auto result = std::string{ value };
+
+      for ( int i = 0; i < value.size(); i++ )
+      {
+        result[i] = value[i] ^ key[i % (key.size() / sizeof(char))];
+      }
+
+      return result;
+    }
+
+    struct SessionManager
+    {
+      using Time = std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds>;
+
+      static SessionManager& instance()
+      {
+        static SessionManager holder;
+        return holder;
+      }
+
+      SessionManager(const SessionManager&) = delete;
+      SessionManager& operator=(const SessionManager&) = delete;
+
+      [[nodiscard]] std::string create()
+      {
+        auto time = Time{ std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now().time_since_epoch() ) };
+        auto id = spt::util::isoDateMicros( time );
+        sessions.try_emplace( id, time );
+
+        save();
+        return base64::to_base64( encrypt( id ) );
+      }
+
+      [[nodiscard]] bool validate( std::string_view value )
+      {
+        auto decoded = base64::from_base64( std::string{ value } );
+        if ( decoded.empty() ) return false;
+        auto iter = sessions.find( encrypt( decoded ) );
+        if ( iter == sessions.end() ) return false;
+        auto time = Time{ std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now().time_since_epoch() ) };
+        return time > iter->second;
+      }
+
+      void remove( std::string_view value )
+      {
+        auto decoded = base64::from_base64( std::string{ value } );
+        if ( decoded.empty() )
+        {
+          std::cerr << "Empty base64 decoded value " << value << std::endl;
+          return;
+        }
+
+        auto iter = sessions.find( encrypt( decoded ) );
+        if ( iter == sessions.end() )
+        {
+          std::cerr << "Session not found from value " << encrypt( decoded ) << std::endl;
+          return;
+        }
+
+        sessions.erase( iter );
+        save();
+      }
+
+    private:
+      SessionManager()
+      {
+        std::error_code ec;
+        auto p = std::filesystem::path{ file };
+        if ( std::filesystem::exists( p, ec ) && is_regular_file( p ) )
+        {
+          auto size = std::filesystem::file_size( p, ec );
+          auto body = std::string{};
+          body.resize( size, '\0' );
+          auto stream = std::ifstream( p, std::ios::in | std::ios::binary );
+          stream.exceptions( std::ios_base::badbit );
+          if ( !stream ) return;
+          stream.read( &body[0], static_cast<std::streamsize>( size ) );
+
+          auto parsed = boost::json::parse( body, ec );
+          if ( ec )
+          {
+            std::cerr << "Error parsing session file: " << ec.message() << std::endl;
+            return;
+          }
+
+          if ( !parsed.is_array() )
+          {
+            std::cerr << "Session data not array: " << ec.message() << std::endl;
+            return;
+          }
+
+          const auto& arr = parsed.as_array();
+          for ( const auto& obj : arr )
+          {
+            if ( !obj.is_object() )
+            {
+              std::cerr << "Session data not object\n";
+              continue;
+            }
+
+            const auto& object = obj.as_object();
+            if ( !object.contains( "id" ) || !object.contains( "value" ) )
+            {
+              std::cerr << "Session data missing id or value\n";
+              continue;
+            }
+
+            auto id = object.at( "id" );
+            if ( !id.is_string() )
+            {
+              std::cerr << "Session id not string\n";
+              continue;
+            }
+
+            auto us = object.at( "value" );
+            if ( !us.is_int64() )
+            {
+              std::cerr << "Session value not int64\n";
+              continue;
+            }
+
+            sessions.try_emplace( std::string{ id.as_string() }, Time{ std::chrono::microseconds{ us.as_int64() } } );
+          }
+        }
+      }
+
+      void save() const
+      {
+        auto json = boost::json::array{};
+        for ( const auto& [key, value] : sessions )
+        {
+          json.emplace_back( boost::json::object{ { "id", key }, { "value", std::chrono::duration_cast<std::chrono::microseconds>( value.time_since_epoch() ).count() } } );
+        }
+        fmt::output_file( file ).print( "{}", boost::json::serialize( json ) );
+      }
+
+      std::map<std::string, std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds>, std::less<>> sessions;
+      const std::string file{ "/tmp/apm-sessions.json" };
+    };
+  }
+}
 
 Application::Application( const Wt::WEnvironment& wenv ) : WApplication( wenv )
 {
@@ -87,11 +245,8 @@ void Application::pathChangeListener( const std::string& path )
 
 std::string Application::cookieName()
 {
-#ifdef __APPLE__
+  if ( papp::secureCookie() ) return "__Host-spt-apm-auth"s;
   return "spt-apm-auth"s;
-#else
-  return "__Host-spt-apm-auth"s;
-#endif
 }
 
 void Application::displayAuth()
@@ -103,7 +258,7 @@ void Application::displayAuth()
 
 void Application::display( std::string_view cookie, const std::string& cookieName )
 {
-  if ( !cookie.empty() )
+  if ( !cookie.empty() && papp::SessionManager::instance().validate( cookie ) )
   {
     root()->clear();
     return route();
@@ -112,11 +267,7 @@ void Application::display( std::string_view cookie, const std::string& cookieNam
   displayAuth();
 
   auto ck = Wt::Http::Cookie{ cookieName };
-#ifdef __APPLE__
-  ck.setSecure( false );
-#else
-  ck.setSecure( true );
-#endif
+  ck.setSecure( papp::secureCookie() );
   ck.setHttpOnly( true );
   ck.setPath( "/"s );
   removeCookie( ck );
@@ -136,7 +287,8 @@ void Application::logout()
 {
   log( "info" ) << __FILE__ << " " << __func__ << " " << __LINE__ <<  " Logging out. Entry path " << lastPath;
   clearSession();
-  setInternalPath( "/a" );
+  setInternalPath( "" );
+  page = nullptr;
   displayAuth();
 }
 
@@ -157,17 +309,25 @@ void Application::displayPage()
 
 void Application::createCookie()
 {
-  auto cookie = Wt::Http::Cookie( cookieName(),
-      "0t0VMLvsK54hzE1AsZ5fkUPV8H9AVx+48K/DTVs4oA0="s,
+  cookieValue = papp::SessionManager::instance().create();
+  auto cookie = Wt::Http::Cookie( cookieName(), cookieValue,
 #ifdef __APPLE__
       std::chrono::hours{ 8 } );
-  cookie.setSecure( false );
-  cookie.setSameSite( Wt::Http::Cookie::SameSite::Lax );
 #else
       std::chrono::hours{ 24 } );
-  cookie.setSecure( true );
-  cookie.setSameSite( Wt::Http::Cookie::SameSite::Strict );
 #endif
+
+  if ( papp::secureCookie() )
+  {
+    cookie.setSecure( true );
+    cookie.setSameSite( Wt::Http::Cookie::SameSite::Strict );
+  }
+  else
+  {
+    cookie.setSecure( false );
+    cookie.setSameSite( Wt::Http::Cookie::SameSite::Lax );
+  }
+
   cookie.setHttpOnly( true );
   cookie.setPath( "/"s );
   setCookie( cookie );
@@ -176,8 +336,10 @@ void Application::createCookie()
 void Application::clearSession()
 {
   auto cookie = Wt::Http::Cookie{ cookieName() };
-  cookie.setSecure( true );
+  cookie.setSecure( papp::secureCookie() );
   cookie.setHttpOnly( true );
   cookie.setPath( "/"s );
   removeCookie( cookie );
+  papp::SessionManager::instance().remove( cookieValue );
+  cookieValue.clear();
 }

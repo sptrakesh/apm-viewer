@@ -11,10 +11,13 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest-arm
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v3
 
+    - name: Set up Homebrew
+      run: brew install docker
+
     - name: Build
-      run: web/docker/build.sh
+      run: web/docker/ci-build.sh
